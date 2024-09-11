@@ -141,21 +141,6 @@ VOID Render()
     mat = mat * View * Proj;
     pEffect->SetMatrix("matWorldViewProj", &mat);
 
-    D3DXVECTOR3 vecDirection(1, -1, -1);
-    D3DLIGHT9 light;
-    ZeroMemory(&light, sizeof(D3DLIGHT9));
-    light.Type = D3DLIGHT_DIRECTIONAL;
-    light.Diffuse.r = 1.0f;
-    light.Diffuse.g = 1.0f;
-    light.Diffuse.b = 1.0f;
-    light.Specular.r = 1.0f;
-    light.Specular.g = 1.0f;
-    light.Specular.b = 1.0f;
-    D3DXVec3Normalize((D3DXVECTOR3*)&light.Direction, &vecDirection);
-    light.Range = 200.0f;
-    g_pd3dDevice->SetLight(0, &light);
-    g_pd3dDevice->LightEnable(0, TRUE);
-
     g_pd3dDevice->Clear(0, NULL, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER,
         D3DCOLOR_XRGB(100, 100, 100), 1.0f, 0);
 
@@ -171,7 +156,7 @@ VOID Render()
         pEffect->BeginPass(0);
         for (DWORD i = 0; i < dwNumMaterials; i++)
         {
-            g_pd3dDevice->SetMaterial(&(d3dxMaterials[i].MatD3D));
+            pEffect->SetTexture("texture1", pTextures[i]);
             pMesh->DrawSubset(i);
         }
         pEffect->EndPass();
