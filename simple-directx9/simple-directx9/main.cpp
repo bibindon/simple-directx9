@@ -1,5 +1,3 @@
-#pragma comment( lib, "winmm.lib" )
-
 #include <d3d9.h>
 #include <d3dx9.h>
 #include <string>
@@ -13,6 +11,9 @@ LPD3DXMESH pMesh = NULL;
 D3DMATERIAL9* pMaterials = NULL;
 LPDIRECT3DTEXTURE9* pTextures = NULL;
 DWORD dwNumMaterials = 0;
+LPD3DXEFFECT pEffect = NULL;
+D3DXMATERIAL* d3dxMaterials = NULL;
+float f = 0.0f;
 
 void TextDraw(LPD3DXFONT pFont, char* text, int X, int Y)
 {
@@ -77,7 +78,7 @@ HRESULT InitD3D(HWND hWnd)
         MessageBox(NULL, "Xファイルの読み込みに失敗しました", NULL, MB_OK);
         return E_FAIL;
     }
-    D3DXMATERIAL* d3dxMaterials = (D3DXMATERIAL*)pD3DXMtrlBuffer->GetBufferPointer();
+    d3dxMaterials = (D3DXMATERIAL*)pD3DXMtrlBuffer->GetBufferPointer();
     pMaterials = new D3DMATERIAL9[dwNumMaterials];
     pTextures = new LPDIRECT3DTEXTURE9[dwNumMaterials];
 
@@ -98,10 +99,17 @@ HRESULT InitD3D(HWND hWnd)
         }
     }
     pD3DXMtrlBuffer->Release();
-    g_pd3dDevice->SetRenderState(D3DRS_ZENABLE, TRUE);
-    g_pd3dDevice->SetRenderState(D3DRS_LIGHTING, TRUE);
-    g_pd3dDevice->SetRenderState(D3DRS_AMBIENT, 0x00111111);
-    g_pd3dDevice->SetRenderState(D3DRS_SPECULARENABLE, TRUE);
+
+    D3DXCreateEffectFromFile(
+        g_pd3dDevice,
+        "simple.fx",
+        NULL,
+        NULL,
+        D3DXSHADER_DEBUG,
+        NULL,
+        &pEffect,
+        NULL
+    );
 
     return S_OK;
 }
@@ -120,22 +128,19 @@ VOID Render()
     {
         return;
     }
+    f += 0.025f;
 
-    D3DXMATRIXA16 matWorld, matRotation;
-    D3DXMatrixRotationY(&matWorld, timeGetTime() / 3000.0f);
-    D3DXMatrixRotationX(&matRotation, 0.5f);
-    D3DXMatrixMultiply(&matWorld, &matWorld, &matRotation);
-    g_pd3dDevice->SetTransform(D3DTS_WORLD, &matWorld);
+    D3DXMATRIX mat;
+    D3DXMATRIX View, Proj;
+    D3DXMatrixPerspectiveFovLH(&Proj, D3DXToRadian(45), 640.0f / 480.0f, 1.0f, 10000.0f);
+    D3DXVECTOR3 vec1(10 * sinf(f), 10, -10 * cosf(f));
+    D3DXVECTOR3 vec2(0, 0, 0);
+    D3DXVECTOR3 vec3(0, 1, 0);
+    D3DXMatrixLookAtLH(&View, &vec1, &vec2, &vec3);
+    D3DXMatrixIdentity(&mat);
+    mat = mat * View * Proj;
+    pEffect->SetMatrix("matWorldViewProj", &mat);
 
-    D3DXVECTOR3 vecEyePt(0.0f, 3.0f, -1.5f);
-    D3DXVECTOR3 vecLookatPt(0.0f, 0.0f, 0.0f);
-    D3DXVECTOR3 vecUpVec(0.0f, 1.0f, 0.0f);
-    D3DXMATRIXA16 matView;
-    D3DXMatrixLookAtLH(&matView, &vecEyePt, &vecLookatPt, &vecUpVec);
-    g_pd3dDevice->SetTransform(D3DTS_VIEW, &matView);
-    D3DXMATRIXA16 matProj;
-    D3DXMatrixPerspectiveFovLH(&matProj, D3DX_PI / 4, 1.0f, 1.0f, 100.0f);
-    g_pd3dDevice->SetTransform(D3DTS_PROJECTION, &matProj);
     D3DXVECTOR3 vecDirection(1, -1, -1);
     D3DLIGHT9 light;
     ZeroMemory(&light, sizeof(D3DLIGHT9));
@@ -156,16 +161,21 @@ VOID Render()
 
     if (SUCCEEDED(g_pd3dDevice->BeginScene()))
     {
+        char msg[100];
+        strcpy_s(msg, 100, "Xファイルの読み込みと表示");
+        TextDraw(g_pFont, msg, 0, 0);
+
+        pEffect->SetTechnique("BasicTec");
+        UINT numPass;
+        pEffect->Begin(&numPass, 0);
+        pEffect->BeginPass(0);
         for (DWORD i = 0; i < dwNumMaterials; i++)
         {
-            g_pd3dDevice->SetMaterial(&pMaterials[i]);
-            g_pd3dDevice->SetTexture(0, pTextures[i]);
+            g_pd3dDevice->SetMaterial(&(d3dxMaterials[i].MatD3D));
             pMesh->DrawSubset(i);
         }
-        char msgg[100];
-        strcpy_s(msgg, 100, "Xファイルの読み込みと表示");
-        TextDraw(g_pFont, msgg, 0, 0);
-
+        pEffect->EndPass();
+        pEffect->End();
         g_pd3dDevice->EndScene();
     }
 
