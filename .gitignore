@@ -1,0 +1,9 @@
+﻿################################################################################
+# この .gitignore ファイルは Microsoft(R) Visual Studio によって自動的に作成されました。
+################################################################################
+
+/.vs
+/simple-directx9/.vs/simple-directx9/v16
+/simple-directx9/Debug
+/simple-directx9/simple-directx9/Debug
+*.user
