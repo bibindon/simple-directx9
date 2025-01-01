@@ -123,7 +123,9 @@ HRESULT InitD3D(HWND hWnd)
 
 VOID Cleanup()
 {
+    SAFE_RELEASE((*pTextures));
     SAFE_RELEASE(pMesh);
+    SAFE_RELEASE(pEffect);
     SAFE_RELEASE(g_pFont);
     SAFE_RELEASE(g_pd3dDevice);
     SAFE_RELEASE(g_pD3D);
@@ -164,6 +166,7 @@ VOID Render()
         for (DWORD i = 0; i < dwNumMaterials; i++)
         {
             pEffect->SetTexture("texture1", pTextures[i]);
+            pEffect->CommitChanges();
             pMesh->DrawSubset(i);
         }
         pEffect->EndPass();
