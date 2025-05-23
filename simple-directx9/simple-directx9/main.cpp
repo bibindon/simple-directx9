@@ -86,12 +86,11 @@ int WINAPI _tWinMain(_In_ HINSTANCE hInstance,
         {
             DispatchMessage(&msg);
         }
+
         Sleep(16);
         Render();
     }
     while (msg.message != WM_QUIT);
-
-    Cleanup();
 
     UnregisterClass(_T("Window1"), wc.hInstance);
     return 0;
@@ -260,11 +259,6 @@ void Render()
 {
     HRESULT hResult = E_FAIL;
 
-    if (g_pd3dDevice == NULL)
-    {
-        return;
-    }
-
     static float f = 0.0f;
     f += 0.025f;
 
@@ -284,7 +278,7 @@ void Render()
     D3DXMatrixIdentity(&mat);
     mat = mat * View * Proj;
 
-    hResult = g_pEffect->SetMatrix("matWorldViewProj", &mat);
+    hResult = g_pEffect->SetMatrix("g_matWorldViewProj", &mat);
     assert(hResult == S_OK);
 
     hResult = g_pd3dDevice->Clear(0,
@@ -303,11 +297,10 @@ void Render()
     _tcscpy_s(msg, 100, _T("Xファイルの読み込みと表示"));
     TextDraw(g_pFont, msg, 0, 0);
 
-    hResult = g_pEffect->SetTechnique("BasicTec");
+    hResult = g_pEffect->SetTechnique("Technique1");
     assert(hResult == S_OK);
 
     UINT numPass;
-
     hResult = g_pEffect->Begin(&numPass, 0);
     assert(hResult == S_OK);
 
@@ -344,8 +337,11 @@ LRESULT WINAPI MsgProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
     switch (msg)
     {
     case WM_DESTROY:
+    {
+        Cleanup();
         PostQuitMessage(0);
         return 0;
+    }
     }
 
     return DefWindowProc(hWnd, msg, wParam, lParam);

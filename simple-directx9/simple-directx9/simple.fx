@@ -1,5 +1,5 @@
-float4x4 matWorldViewProj;
-float4 lightNormal = { 0.3f, 1.0f, 0.5f, 0.0f };
+float4x4 g_matWorldViewProj;
+float4 g_lightNormal = { 0.3f, 1.0f, 0.5f, 0.0f };
 
 texture texture1;
 sampler textureSampler = sampler_state {
@@ -9,40 +9,38 @@ sampler textureSampler = sampler_state {
     MagFilter = LINEAR;
 };
 
-void vertex_shader(
-    in  float4 in_position  : POSITION,
-    in  float4 in_normal : NORMAL0,
-    in  float4 in_texcood : TEXCOORD0,
+void VertexShader1(in  float4 inPosition  : POSITION,
+                   in  float4 inNormal    : NORMAL0,
+                   in  float4 inTexCood   : TEXCOORD0,
 
-    out float4 out_position : POSITION,
-    out float4 out_diffuse : COLOR0,
-    out float4 out_texcood : TEXCOORD0)
+                   out float4 outPosition : POSITION,
+                   out float4 outDiffuse  : COLOR0,
+                   out float4 outTexCood  : TEXCOORD0)
 {
-    out_position = mul(in_position, matWorldViewProj);
+    outPosition = mul(inPosition, g_matWorldViewProj);
 
-    float light_intensity = dot(in_normal, lightNormal);
-    out_diffuse.rgb = max(0, light_intensity);
-    out_diffuse.a = 1.0f;
+    float lightIntensity = dot(inNormal, g_lightNormal);
+    outDiffuse.rgb = max(0, lightIntensity);
+    outDiffuse.a = 1.0f;
 
-    out_texcood = in_texcood;
+    outTexCood = inTexCood;
 }
 
-void NoWorkingPixelShader(
-    in float4 ScreenColor : COLOR0,
-    in float2 in_texcood : TEXCOORD0,
+void PixelShader1(in float4 inScreenColor : COLOR0,
+                  in float2 inTexCood     : TEXCOORD0,
 
-    out float4 outColor : COLOR)
+                  out float4 outColor     : COLOR)
 {
     float4 workColor = (float4)0;
-    workColor = tex2D(textureSampler, in_texcood);
-    outColor = (ScreenColor * workColor);
+    workColor = tex2D(textureSampler, inTexCood);
+    outColor = inScreenColor * workColor;
 }
 
-technique BasicTec
+technique Technique1
 {
-   pass P0
+   pass Pass1
    {
-      VertexShader = compile vs_2_0 vertex_shader();
-      PixelShader = compile ps_2_0 NoWorkingPixelShader();
+      VertexShader = compile vs_2_0 VertexShader1();
+      PixelShader = compile ps_2_0 PixelShader1();
    }
 }
