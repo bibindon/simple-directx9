@@ -10,26 +10,99 @@
 #include <string>
 #include <tchar.h>
 #include <cassert>
+#include <crtdbg.h>
+#include <vector>
 
 #define SAFE_RELEASE(p) { if (p) { (p)->Release(); (p) = NULL; } }
 
 LPDIRECT3D9 g_pD3D = NULL;
 LPDIRECT3DDEVICE9 g_pd3dDevice = NULL;
 LPD3DXFONT g_pFont = NULL;
-LPD3DXMESH pMesh = NULL;
-D3DMATERIAL9* pMaterials = NULL;
-LPDIRECT3DTEXTURE9* pTextures = NULL;
-DWORD dwNumMaterials = 0;
-LPD3DXEFFECT pEffect = NULL;
+LPD3DXMESH g_pMesh = NULL;
+std::vector<D3DMATERIAL9> g_pMaterials;
+std::vector<LPDIRECT3DTEXTURE9> g_pTextures;
+DWORD g_dwNumMaterials = 0;
+LPD3DXEFFECT g_pEffect = NULL;
 
 static void TextDraw(LPD3DXFONT pFont, TCHAR* text, int X, int Y);
 static void InitD3D(HWND hWnd);
 static void Cleanup();
+static void Render();
+LRESULT WINAPI MsgProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
+int WINAPI _tWinMain(_In_ HINSTANCE hInstance,
+                     _In_opt_ HINSTANCE hPrevInstance,
+                     _In_ LPTSTR lpCmdLine,
+                     _In_ int nCmdShow)
+{
+    _CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
 
-static void TextDraw(LPD3DXFONT pFont, TCHAR* text, int X, int Y)
+    WNDCLASSEX wc { };
+    wc.cbSize = sizeof(WNDCLASSEX);
+    wc.style = CS_CLASSDC;
+    wc.lpfnWndProc = MsgProc;
+    wc.cbClsExtra = 0;
+    wc.cbWndExtra = 0;
+    wc.hInstance = GetModuleHandle(NULL);
+    wc.hIcon = NULL;
+    wc.hCursor = NULL;
+    wc.hbrBackground = NULL;
+    wc.lpszMenuName = NULL;
+    wc.lpszClassName = _T("Window1");
+    wc.hIconSm = NULL;
+
+    ATOM atom = RegisterClassEx(&wc);
+    assert(atom != 0);
+
+    RECT rect;
+    SetRect(&rect, 0, 0, 640, 480);
+    AdjustWindowRect(&rect, WS_OVERLAPPEDWINDOW, FALSE);
+    rect.right = rect.right - rect.left;
+    rect.bottom = rect.bottom - rect.top;
+    rect.top = 0;
+    rect.left = 0;
+
+    HWND hWnd = CreateWindow(_T("Window1"),
+                             _T("Hello DirectX9 World !!"),
+                             WS_OVERLAPPEDWINDOW,
+                             CW_USEDEFAULT,
+                             CW_USEDEFAULT,
+                             rect.right,
+                             rect.bottom,
+                             NULL,
+                             NULL,
+                             wc.hInstance,
+                             NULL);
+
+    InitD3D(hWnd);
+    ShowWindow(hWnd, SW_SHOWDEFAULT);
+    UpdateWindow(hWnd);
+
+    MSG msg;
+
+    do
+    {
+        if (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
+        {
+            DispatchMessage(&msg);
+        }
+        Sleep(16);
+        Render();
+    }
+    while (msg.message != WM_QUIT);
+
+    Cleanup();
+
+    UnregisterClass(_T("Window1"), wc.hInstance);
+    return 0;
+}
+
+void TextDraw(LPD3DXFONT pFont, TCHAR* text, int X, int Y)
 {
     RECT rect = { X, Y, 0, 0 };
+
+    // DrawTextの戻り値は文字数である。
+    // そのため、hResultの中身が整数でもエラーが起きているわけではない。
     HRESULT hResult = pFont->DrawText(NULL,
                                       text,
                                       -1,
@@ -37,10 +110,10 @@ static void TextDraw(LPD3DXFONT pFont, TCHAR* text, int X, int Y)
                                       DT_LEFT | DT_NOCLIP,
                                       D3DCOLOR_ARGB(255, 0, 0, 0));
 
-    //assert(hResult == S_OK);
+    assert((int)hResult >= 0);
 }
 
-static void InitD3D(HWND hWnd)
+void InitD3D(HWND hWnd)
 {
     HRESULT hResult = E_FAIL;
 
@@ -104,20 +177,20 @@ static void InitD3D(HWND hWnd)
                                 NULL,
                                 &pD3DXMtrlBuffer,
                                 NULL,
-                                &dwNumMaterials,
-                                &pMesh);
+                                &g_dwNumMaterials,
+                                &g_pMesh);
 
     assert(hResult == S_OK);
 
     D3DXMATERIAL* d3dxMaterials = (D3DXMATERIAL*)pD3DXMtrlBuffer->GetBufferPointer();
-    pMaterials = new D3DMATERIAL9[dwNumMaterials];
-    pTextures = new LPDIRECT3DTEXTURE9[dwNumMaterials];
+    g_pMaterials.resize(g_dwNumMaterials);
+    g_pTextures.resize(g_dwNumMaterials);
 
-    for (DWORD i = 0; i < dwNumMaterials; i++)
+    for (DWORD i = 0; i < g_dwNumMaterials; i++)
     {
-        pMaterials[i] = d3dxMaterials[i].MatD3D;
-        pMaterials[i].Ambient = pMaterials[i].Diffuse;
-        pTextures[i] = NULL;
+        g_pMaterials[i] = d3dxMaterials[i].MatD3D;
+        g_pMaterials[i].Ambient = g_pMaterials[i].Diffuse;
+        g_pTextures[i] = NULL;
         
         //--------------------------------------------------------------
         // Unicode文字セットでもマルチバイト文字セットでも
@@ -139,7 +212,7 @@ static void InitD3D(HWND hWnd)
 
             if (!bUnicode)
             {
-                hResult = D3DXCreateTextureFromFileA(g_pd3dDevice, pTexPath.c_str(), &pTextures[i]);
+                hResult = D3DXCreateTextureFromFileA(g_pd3dDevice, pTexPath.c_str(), &g_pTextures[i]);
                 assert(hResult == S_OK);
             }
             else
@@ -148,7 +221,7 @@ static void InitD3D(HWND hWnd)
                 std::wstring pTexPathW(len, 0);
                 MultiByteToWideChar(CP_ACP, 0, pTexPath.c_str(), -1, &pTexPathW[0], len);
 
-                hResult = D3DXCreateTextureFromFileW(g_pd3dDevice, pTexPathW.c_str(), &pTextures[i]);
+                hResult = D3DXCreateTextureFromFileW(g_pd3dDevice, pTexPathW.c_str(), &g_pTextures[i]);
                 assert(hResult == S_OK);
             }
         }
@@ -163,7 +236,7 @@ static void InitD3D(HWND hWnd)
                                        NULL,
                                        D3DXSHADER_DEBUG,
                                        NULL,
-                                       &pEffect,
+                                       &g_pEffect,
                                        NULL);
 
     assert(hResult == S_OK);
@@ -171,15 +244,19 @@ static void InitD3D(HWND hWnd)
 
 void Cleanup()
 {
-    SAFE_RELEASE((*pTextures));
-    SAFE_RELEASE(pMesh);
-    SAFE_RELEASE(pEffect);
+    for (auto& texture : g_pTextures)
+    {
+        SAFE_RELEASE(texture);
+    }
+
+    SAFE_RELEASE(g_pMesh);
+    SAFE_RELEASE(g_pEffect);
     SAFE_RELEASE(g_pFont);
     SAFE_RELEASE(g_pd3dDevice);
     SAFE_RELEASE(g_pD3D);
 }
 
-static void Render()
+void Render()
 {
     HRESULT hResult = E_FAIL;
 
@@ -207,7 +284,7 @@ static void Render()
     D3DXMatrixIdentity(&mat);
     mat = mat * View * Proj;
 
-    hResult = pEffect->SetMatrix("matWorldViewProj", &mat);
+    hResult = g_pEffect->SetMatrix("matWorldViewProj", &mat);
     assert(hResult == S_OK);
 
     hResult = g_pd3dDevice->Clear(0,
@@ -219,44 +296,44 @@ static void Render()
 
     assert(hResult == S_OK);
 
-    if (SUCCEEDED(g_pd3dDevice->BeginScene()))
+    hResult = g_pd3dDevice->BeginScene();
+    assert(hResult == S_OK);
+
+    TCHAR msg[100];
+    _tcscpy_s(msg, 100, _T("Xファイルの読み込みと表示"));
+    TextDraw(g_pFont, msg, 0, 0);
+
+    hResult = g_pEffect->SetTechnique("BasicTec");
+    assert(hResult == S_OK);
+
+    UINT numPass;
+
+    hResult = g_pEffect->Begin(&numPass, 0);
+    assert(hResult == S_OK);
+
+    hResult = g_pEffect->BeginPass(0);
+    assert(hResult == S_OK);
+
+    for (DWORD i = 0; i < g_dwNumMaterials; i++)
     {
-        TCHAR msg[100];
-        _tcscpy_s(msg, 100, _T("Xファイルの読み込みと表示"));
-        TextDraw(g_pFont, msg, 0, 0);
-
-        hResult = pEffect->SetTechnique("BasicTec");
+        hResult = g_pEffect->SetTexture("texture1", g_pTextures[i]);
         assert(hResult == S_OK);
 
-        UINT numPass;
-
-        hResult = pEffect->Begin(&numPass, 0);
+        hResult = g_pEffect->CommitChanges();
         assert(hResult == S_OK);
 
-        hResult = pEffect->BeginPass(0);
-        assert(hResult == S_OK);
-
-        for (DWORD i = 0; i < dwNumMaterials; i++)
-        {
-            hResult = pEffect->SetTexture("texture1", pTextures[i]);
-            assert(hResult == S_OK);
-
-            hResult = pEffect->CommitChanges();
-            assert(hResult == S_OK);
-
-            hResult = pMesh->DrawSubset(i);
-            assert(hResult == S_OK);
-        }
-
-        hResult = pEffect->EndPass();
-        assert(hResult == S_OK);
-
-        hResult = pEffect->End();
-        assert(hResult == S_OK);
-
-        hResult = g_pd3dDevice->EndScene();
+        hResult = g_pMesh->DrawSubset(i);
         assert(hResult == S_OK);
     }
+
+    hResult = g_pEffect->EndPass();
+    assert(hResult == S_OK);
+
+    hResult = g_pEffect->End();
+    assert(hResult == S_OK);
+
+    hResult = g_pd3dDevice->EndScene();
+    assert(hResult == S_OK);
 
     hResult = g_pd3dDevice->Present(NULL, NULL, NULL, NULL);
     assert(hResult == S_OK);
@@ -267,81 +344,10 @@ LRESULT WINAPI MsgProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
     switch (msg)
     {
     case WM_DESTROY:
-        Cleanup();
         PostQuitMessage(0);
-        return 0;
-    case WM_SIZE:
-        InvalidateRect(hWnd, NULL, true);
         return 0;
     }
 
     return DefWindowProc(hWnd, msg, wParam, lParam);
 }
-
-#pragma warning(push)
-#pragma warning(disable: 26426)
-
-int WINAPI _tWinMain(_In_ HINSTANCE hInstance,
-                     _In_opt_ HINSTANCE hPrevInstance,
-                     _In_ LPTSTR lpCmdLine,
-                     _In_ int nCmdShow)
-{
-    WNDCLASSEX wc = {
-        sizeof(WNDCLASSEX),
-        CS_CLASSDC,
-        MsgProc,
-        0L,
-        0L,
-        GetModuleHandle(NULL),
-        NULL,
-        NULL,
-        NULL,
-        NULL,
-        _T("Window1"),
-        NULL };
-
-    RegisterClassEx(&wc);
-
-    RECT rect;
-    SetRect(&rect, 0, 0, 640, 480);
-    AdjustWindowRect(&rect, WS_OVERLAPPEDWINDOW, FALSE);
-    rect.right = rect.right - rect.left;
-    rect.bottom = rect.bottom - rect.top;
-    rect.top = 0;
-    rect.left = 0;
-
-    HWND hWnd = CreateWindow(_T("Window1"),
-                             _T("Hello DirectX9 World !!"),
-                             WS_OVERLAPPEDWINDOW,
-                             CW_USEDEFAULT,
-                             CW_USEDEFAULT,
-                             rect.right,
-                             rect.bottom,
-                             NULL,
-                             NULL,
-                             wc.hInstance,
-                             NULL);
-
-    InitD3D(hWnd);
-    ShowWindow(hWnd, SW_SHOWDEFAULT);
-    UpdateWindow(hWnd);
-
-    MSG msg;
-
-    do
-    {
-        if (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
-        {
-            DispatchMessage(&msg);
-        }
-        Sleep(16);
-        Render();
-    }
-    while (msg.message != WM_QUIT);
-
-    UnregisterClass(_T("Window1"), wc.hInstance);
-    return 0;
-}
-
-#pragma warning(pop)
 
