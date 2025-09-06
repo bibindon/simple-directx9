@@ -109,8 +109,8 @@ void TextDraw(LPD3DXFONT pFont, TCHAR* text, int X, int Y)
 {
     RECT rect = { X, Y, 0, 0 };
 
-    // DrawText�̖߂�l�͕������ł���B
-    // ���̂��߁AhResult�̒��g�������ł��G���[���N���Ă���킯�ł͂Ȃ��B
+    // DrawTextの戻り値は文字数である。
+    // そのため、hResultの中身が整数でもエラーが起きているわけではない。
     HRESULT hResult = pFont->DrawText(NULL,
                                       text,
                                       -1,
@@ -172,7 +172,7 @@ void InitD3D(HWND hWnd)
                              OUT_TT_ONLY_PRECIS,
                              CLEARTYPE_NATURAL_QUALITY,
                              FF_DONTCARE,
-                             _T("�l�r �S�V�b�N"),
+                             _T("ＭＳ ゴシック"),
                              &g_pFont);
 
     assert(hResult == S_OK);
@@ -201,11 +201,11 @@ void InitD3D(HWND hWnd)
         g_pTextures[i] = NULL;
         
         //--------------------------------------------------------------
-        // Unicode�����Z�b�g�ł��}���`�o�C�g�����Z�b�g�ł�
-        // "d3dxMaterials[i].pTextureFilename"�̓}���`�o�C�g�����Z�b�g�ɂȂ�B
+        // Unicode文字セットでもマルチバイト文字セットでも
+        // "d3dxMaterials[i].pTextureFilename"はマルチバイト文字セットになる。
         // 
-        // ����ŁAD3DXCreateTextureFromFile�̓v���W�F�N�g�ݒ��
-        // Unicode�����Z�b�g���}���`�o�C�g�����Z�b�g���ς��B
+        // 一方で、D3DXCreateTextureFromFileはプロジェクト設定で
+        // Unicode文字セットかマルチバイト文字セットか変わる。
         //--------------------------------------------------------------
 
         std::string pTexPath(d3dxMaterials[i].pTextureFilename);
@@ -303,7 +303,7 @@ void Render()
     assert(hResult == S_OK);
 
     TCHAR msg[100];
-    _tcscpy_s(msg, 100, _T("X�t�@�C���̓ǂݍ��݂ƕ\��"));
+    _tcscpy_s(msg, 100, _T("Xファイルの読み込みと表示"));
     TextDraw(g_pFont, msg, 0, 0);
 
     hResult = g_pEffect->SetTechnique("Technique1");
