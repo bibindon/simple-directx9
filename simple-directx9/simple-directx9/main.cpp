@@ -23,6 +23,7 @@ std::vector<D3DMATERIAL9> g_pMaterials;
 std::vector<LPDIRECT3DTEXTURE9> g_pTextures;
 DWORD g_dwNumMaterials = 0;
 LPD3DXEFFECT g_pEffect = NULL;
+bool g_bClose = false;
 
 static void TextDraw(LPD3DXFONT pFont, TCHAR* text, int X, int Y);
 static void InitD3D(HWND hWnd);
@@ -80,17 +81,25 @@ int WINAPI _tWinMain(_In_ HINSTANCE hInstance,
 
     MSG msg;
 
-    do
+    while (true)
     {
         if (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
         {
             DispatchMessage(&msg);
         }
+        else
+        {
+            Sleep(16);
+            Render();
+        }
 
-        Sleep(16);
-        Render();
+        if (g_bClose)
+        {
+            break;
+        }
     }
-    while (msg.message != WM_QUIT);
+
+    Cleanup();
 
     UnregisterClass(_T("Window1"), wc.hInstance);
     return 0;
@@ -100,8 +109,8 @@ void TextDraw(LPD3DXFONT pFont, TCHAR* text, int X, int Y)
 {
     RECT rect = { X, Y, 0, 0 };
 
-    // DrawText‚Ì–ß‚è’l‚Í•¶Žš”‚Å‚ ‚éB
-    // ‚»‚Ì‚½‚ßAhResult‚Ì’†g‚ª®”‚Å‚àƒGƒ‰[‚ª‹N‚«‚Ä‚¢‚é‚í‚¯‚Å‚Í‚È‚¢B
+    // DrawTextï¿½Ì–ß‚ï¿½lï¿½Í•ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Å‚ï¿½ï¿½ï¿½B
+    // ï¿½ï¿½ï¿½Ì‚ï¿½ï¿½ßAhResultï¿½Ì’ï¿½ï¿½gï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Å‚ï¿½ï¿½Gï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½Nï¿½ï¿½ï¿½Ä‚ï¿½ï¿½ï¿½í‚¯ï¿½Å‚Í‚È‚ï¿½ï¿½B
     HRESULT hResult = pFont->DrawText(NULL,
                                       text,
                                       -1,
@@ -163,7 +172,7 @@ void InitD3D(HWND hWnd)
                              OUT_TT_ONLY_PRECIS,
                              CLEARTYPE_NATURAL_QUALITY,
                              FF_DONTCARE,
-                             _T("‚l‚r ƒSƒVƒbƒN"),
+                             _T("ï¿½lï¿½r ï¿½Sï¿½Vï¿½bï¿½N"),
                              &g_pFont);
 
     assert(hResult == S_OK);
@@ -192,11 +201,11 @@ void InitD3D(HWND hWnd)
         g_pTextures[i] = NULL;
         
         //--------------------------------------------------------------
-        // Unicode•¶ŽšƒZƒbƒg‚Å‚àƒ}ƒ‹ƒ`ƒoƒCƒg•¶ŽšƒZƒbƒg‚Å‚à
-        // "d3dxMaterials[i].pTextureFilename"‚Íƒ}ƒ‹ƒ`ƒoƒCƒg•¶ŽšƒZƒbƒg‚É‚È‚éB
+        // Unicodeï¿½ï¿½ï¿½ï¿½ï¿½Zï¿½bï¿½gï¿½Å‚ï¿½ï¿½}ï¿½ï¿½ï¿½`ï¿½oï¿½Cï¿½gï¿½ï¿½ï¿½ï¿½ï¿½Zï¿½bï¿½gï¿½Å‚ï¿½
+        // "d3dxMaterials[i].pTextureFilename"ï¿½Íƒ}ï¿½ï¿½ï¿½`ï¿½oï¿½Cï¿½gï¿½ï¿½ï¿½ï¿½ï¿½Zï¿½bï¿½gï¿½É‚È‚ï¿½B
         // 
-        // ˆê•û‚ÅAD3DXCreateTextureFromFile‚ÍƒvƒƒWƒFƒNƒgÝ’è‚Å
-        // Unicode•¶ŽšƒZƒbƒg‚©ƒ}ƒ‹ƒ`ƒoƒCƒg•¶ŽšƒZƒbƒg‚©•Ï‚í‚éB
+        // ï¿½ï¿½ï¿½ï¿½ÅAD3DXCreateTextureFromFileï¿½Íƒvï¿½ï¿½ï¿½Wï¿½Fï¿½Nï¿½gï¿½Ý’ï¿½ï¿½
+        // Unicodeï¿½ï¿½ï¿½ï¿½ï¿½Zï¿½bï¿½gï¿½ï¿½ï¿½}ï¿½ï¿½ï¿½`ï¿½oï¿½Cï¿½gï¿½ï¿½ï¿½ï¿½ï¿½Zï¿½bï¿½gï¿½ï¿½ï¿½Ï‚ï¿½ï¿½B
         //--------------------------------------------------------------
 
         std::string pTexPath(d3dxMaterials[i].pTextureFilename);
@@ -294,7 +303,7 @@ void Render()
     assert(hResult == S_OK);
 
     TCHAR msg[100];
-    _tcscpy_s(msg, 100, _T("Xƒtƒ@ƒCƒ‹‚Ì“Ç‚Ýž‚Ý‚Æ•\Ž¦"));
+    _tcscpy_s(msg, 100, _T("Xï¿½tï¿½@ï¿½Cï¿½ï¿½ï¿½Ì“Ç‚Ýï¿½ï¿½Ý‚Æ•\ï¿½ï¿½"));
     TextDraw(g_pFont, msg, 0, 0);
 
     hResult = g_pEffect->SetTechnique("Technique1");
@@ -338,8 +347,8 @@ LRESULT WINAPI MsgProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
     {
     case WM_DESTROY:
     {
-        Cleanup();
         PostQuitMessage(0);
+        g_bClose = true;
         return 0;
     }
     }
