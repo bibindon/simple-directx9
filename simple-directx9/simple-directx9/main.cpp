@@ -15,6 +15,9 @@
 
 #define SAFE_RELEASE(p) { if (p) { (p)->Release(); (p) = NULL; } }
 
+const int WINDOW_SIZE_W = 1600;
+const int WINDOW_SIZE_H = 900;
+
 LPDIRECT3D9 g_pD3D = NULL;
 LPDIRECT3DDEVICE9 g_pd3dDevice = NULL;
 LPD3DXFONT g_pFont = NULL;
@@ -61,7 +64,7 @@ int WINAPI _tWinMain(_In_ HINSTANCE hInstance,
     assert(atom != 0);
 
     RECT rect;
-    SetRect(&rect, 0, 0, 640, 480);
+    SetRect(&rect, 0, 0, WINDOW_SIZE_W, WINDOW_SIZE_H);
     AdjustWindowRect(&rect, WS_OVERLAPPEDWINDOW, FALSE);
     rect.right = rect.right - rect.left;
     rect.bottom = rect.bottom - rect.top;
@@ -281,7 +284,7 @@ void Render()
 
     D3DXMatrixPerspectiveFovLH(&Proj,
                                D3DXToRadian(45),
-                               640.0f / 480.0f,
+                               (float)WINDOW_SIZE_W / WINDOW_SIZE_H,
                                1.0f,
                                10000.0f);
 
